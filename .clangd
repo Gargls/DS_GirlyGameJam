@@ -1,0 +1,22 @@
+CompileFlags:
+  Compiler: /opt/wonderful/toolchain/gcc-arm-none-eabi/bin/arm-none-eabi-gcc
+  Add:
+    - --target=arm-none-eabi
+    - -mthumb
+    - -mcpu=arm946e-s
+    - -std=gnu17
+    - -D__NDS__
+    - -DARM9
+    # Toolchain (Wonderful gcc-arm-none-eabi) builtin headers
+    - -isystem/opt/wonderful/toolchain/gcc-arm-none-eabi/lib/gcc/arm-none-eabi/16.2.0/include
+    - -isystem/opt/wonderful/toolchain/gcc-arm-none-eabi/lib/gcc/arm-none-eabi/16.2.0/include-fixed
+    - -isystem/opt/wonderful/toolchain/gcc-arm-none-eabi/arm-none-eabi/include
+    # BlocksDS libraries (this is where the real nds.h lives)
+    - -I/opt/blocksds/core/libs/libnds/include
+    - -I/opt/blocksds/core/libs/dswifi/include
+    - -I/opt/blocksds/external/nflib/include
+  Remove:
+    # GCC-only flags clang does not understand
+    - -mcpu=arm946e-s+nofp
+    - -ffunction-sections
+    - -fdata-sections
