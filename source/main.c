@@ -1,6 +1,4 @@
 // SPDX-License-Identifier: CC0-1.0
-//
-// Sawmill Party.
 
 #include <stdbool.h>
 #include <stdio.h>
@@ -9,6 +7,15 @@
 #include <nds.h>
 
 #include <nf_lib.h>
+
+// Written by Claude -- see source/claude/
+#include "claude/girl.h"
+#include "claude/round.h"
+#include "claude/topbg.h"
+#include "claude/wipe.h"
+
+// Seconds on the clock for a minigame step.
+#define ROUND_SECONDS 5
 
 // Declared up here so the campaign code can call into the minigame code even
 // though the minigame is defined further down the file.
@@ -64,33 +71,40 @@ static const CampaignStep campaign[] = {
 };
 #define CAMPAIGN_LEN ((int)(sizeof(campaign) / sizeof(campaign[0])))
 
-// Draws only. No input, no state changes -- anything that advances the
-// campaign from in here would re-enter this function in the same frame.
+// Draws only. No input, no state changes
+//
 static void step_draw(void) {
+
   const CampaignStep *s = &campaign[step];
 
   printf("\x1b[2J");
-  printf("\x1b[2;2H%s", s->kind == STEP_MINIGAME ? "MINIGAME" : "CUTSCENE");
-  printf("\x1b[4;2H%s", s->name);
-  printf("\x1b[12;2HStep %d of %d", step + 1, CAMPAIGN_LEN);
+  printf("\x1b[1;2H%s  Step %d of %d",
+         s->kind == STEP_MINIGAME ? "MINIGAME" : "CUTSCENE", step + 1,
+         CAMPAIGN_LEN);
+  printf("\x1b[2;2H%s", s->name);
   if (s->kind == STEP_CUTSCENE)
-    printf("\x1b[14;2HTouch to continue");
+    printf("\x1b[21;2HTouch to continue");
 }
 
 static void menu_draw(void) {
   printf("\x1b[2J");
-  printf("\x1b[10;7HSawmill Party");
-  printf("\x1b[12;4HTouch lower Screen to Start");
+  printf("\x1b[1;2HGame");
+  printf("\x1b[21;2HTouch lower Screen to Start");
 }
 
 // Arriving at a step: paint it, then set up whatever it needs.
 static void step_enter(void) {
   step_draw();
   if (campaign[step].kind == STEP_MINIGAME) {
-    NF_HideBg(1, BG_STRIPES_LAYER);
+    // Build the game behind the stripes, then sweep them off it. The clock is
+    // armed here but does not tick until the sweep finishes, because the loop
+    // skips roundUpdate() while a wipe is running.
     game_start();
+    roundStart(ROUND_SECONDS);
+    wipeStart(false);
   } else {
-    NF_ShowBg(1, BG_STRIPES_LAYER);
+    girlSetMood(GIRL_IDLE);
+    wipeStart(true);
   }
 }
 
@@ -107,7 +121,7 @@ static void step_advance(void) {
 
   if (step >= CAMPAIGN_LEN) {
     state = GS_MENU;
-    NF_HideBg(1, BG_STRIPES_LAYER);
+    wipeCancel();
     menu_draw();
   } else {
     step_enter();
@@ -127,12 +141,9 @@ static void check_win(void) {
   won = true;
 }
 
-// Returns true once every saw is in a slot. Reporting the win rather than
-// advancing the campaign itself keeps this function free of side effects on
-// the walker -- the main loop decides what a win means.
+// Returns true once every saw is in a slot.
 static bool game_update(void) {
   if (keysHeld() & KEY_TOUCH) {
-    // Pen is down: pick up a saw, then drag whatever is held.
     touchPosition t;
     touchRead(&t);
 
@@ -190,12 +201,11 @@ static bool game_update(void) {
 
 static void game_draw(void) {
   // No screen clear: step_draw() has already painted the header for this step.
-  printf("\x1b[6;2HDrag the saws onto the marks");
+  printf("\x1b[21;2HDrag the saws onto the marks");
 }
 
 static void game_start(void) {
-  // Reset Game State. The initialisers on the globals above only ever run once,
-  // at boot, so replaying the campaign has to reset them here.
+  // Reset Game State.
   for (int i = 0; i < SAW_COUNT; i++) {
     saw_x[i] = saw_reset_x[i];
     saw_y[i] = saw_reset_y[i];
@@ -241,7 +251,7 @@ static void game_stop(void) {
 }
 
 static void debug_draw(void) {
-  printf("\x1b[22;2Hstate=%s step=%d/%d  ", state == GS_MENU ? "MENU" : "STEP",
+  printf("\x1b[0;2Hstate=%s step=%d/%d  ", state == GS_MENU ? "MENU" : "STEP",
          step, CAMPAIGN_LEN);
 }
 
@@ -254,6 +264,10 @@ int main(int argc, char **argv) {
   consoleInit(&top, 3, BgType_Text4bpp, BgSize_T_256x256, 31, 0, true, true);
   consoleSelect(&top);
   lcdMainOnTop();
+
+  // The portrait is a full-screen sprite. A sprite beats a background at equal
+  // priority, so the console is pushed to priority 0 to draw in front of it.
+  bgSetPriority(top.bgId, 0);
 
   // NitroFS must be mounted before NFLib reads any file.
   if (!nitroFSInit(NULL)) {
@@ -276,6 +290,15 @@ int main(int argc, char **argv) {
   NF_LoadTiledBg("bg/stripes_bg", "stripes", 256, 256);
   NF_CreateTiledBg(1, BG_STRIPES_LAYER, "stripes");
   NF_HideBg(1, BG_STRIPES_LAYER);
+  wipeInit(BG_STRIPES_LAYER);
+
+  // Top-screen backdrop, behind the portrait and the text. Stays for the whole
+  // run; nothing hides or swaps it.
+  topBgInit();
+
+  // Top-screen portrait. Sets up screen 0's sprite engine itself.
+  girlInit();
+  girlShow(true);
 
   BG_PALETTE_SUB[0] = RGB15(3, 4, 8);
   menu_draw();
@@ -290,8 +313,17 @@ int main(int argc, char **argv) {
         step_enter();
       }
     } else if (state == GS_STEP) {
-      if (campaign[step].kind == STEP_MINIGAME) {
-        if (game_update())
+      if (wipeIsRunning()) {
+        // Nothing else runs mid-sweep: no input, and no clock. The round only
+        // starts counting once the screen has actually been handed over.
+        wipeUpdate();
+      } else if (campaign[step].kind == STEP_MINIGAME) {
+        // Short-circuit: once the round is over the minigame stops being
+        // updated, so a late drag cannot move a saw during the reaction.
+        bool won = roundIsPlaying() && game_update();
+        RoundPhase phase = roundUpdate(won);
+        roundDraw();
+        if (phase == ROUND_DONE)
           step_advance();
       } else if (keysDown() & KEY_TOUCH) {
         step_advance();
@@ -299,8 +331,10 @@ int main(int argc, char **argv) {
     }
 
     debug_draw();
+    NF_SpriteOamSet(0);
     NF_SpriteOamSet(1);
     swiWaitForVBlank();
+    oamUpdate(&oamMain);
     oamUpdate(&oamSub);
   }
 
