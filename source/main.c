@@ -10,22 +10,22 @@
 
 #include <nf_lib.h>
 
-typedef enum { GS_MENU, GS_GAME } GameState;
+// Declared up here so the campaign code can call into the minigame code even
+// though the minigame is defined further down the file.
+static void step_advance(void);
+static void game_start(void);
+static void game_stop(void);
+
+typedef enum { GS_MENU, GS_STEP } GameState;
 
 static GameState state = GS_MENU;
 
-static void menu_draw(void) {
-  printf("Hi");
-  printf(" \x1b[12;4HTouch lower Screen to Start");
-}
-static void game_draw(void) {
-  printf("\x1b[2J");
-  printf("\x1b[2;2HPut the Saws into the Spots");
-}
+// The stripes background. Layer 3 is the backmost of the four, which is what
+// you want for a backdrop, and it leaves 0-2 free for the wipe later.
+#define BG_STRIPES_LAYER 3
 
+// Drop the Saw MiniGame Stuff -> TODO: Put it into its own file
 #define SAW_COUNT 3
-
-// The sprite is 16 wide and 32 tall, same as saw_1.img.
 #define SAW_W 16
 #define SAW_H 32
 #define SNAP_DIST 12
@@ -33,6 +33,9 @@ static void game_draw(void) {
 static int saw_x[SAW_COUNT] = {20, 20, 20};
 static int saw_y[SAW_COUNT] = {10, 70, 130};
 static bool placed[SAW_COUNT] = {false, false, false};
+// Reset
+static const int saw_reset_x[SAW_COUNT] = {20, 20, 20};
+static const int saw_reset_y[SAW_COUNT] = {10, 70, 130};
 
 static const int slot_x[SAW_COUNT] = {200, 200, 200};
 static const int slot_y[SAW_COUNT] = {10, 70, 130};
@@ -41,6 +44,79 @@ static bool slot_taken[SAW_COUNT] = {false, false, false};
 static int held = -1;
 static int grab_dx, grab_dy;
 static bool won = false;
+// Until here
+
+// Campaign Module
+
+static int step = 0;
+
+typedef enum { STEP_CUTSCENE, STEP_MINIGAME } StepKind;
+
+typedef struct {
+  StepKind kind;
+  const char *name;
+} CampaignStep;
+
+static const CampaignStep campaign[] = {
+    {STEP_CUTSCENE, "Start the Day"},
+    {STEP_MINIGAME, "Put the Saws into the Spot"},
+    {STEP_CUTSCENE, "Day one done!"},
+};
+#define CAMPAIGN_LEN ((int)(sizeof(campaign) / sizeof(campaign[0])))
+
+// Draws only. No input, no state changes -- anything that advances the
+// campaign from in here would re-enter this function in the same frame.
+static void step_draw(void) {
+  const CampaignStep *s = &campaign[step];
+
+  printf("\x1b[2J");
+  printf("\x1b[2;2H%s", s->kind == STEP_MINIGAME ? "MINIGAME" : "CUTSCENE");
+  printf("\x1b[4;2H%s", s->name);
+  printf("\x1b[12;2HStep %d of %d", step + 1, CAMPAIGN_LEN);
+  if (s->kind == STEP_CUTSCENE)
+    printf("\x1b[14;2HTouch to continue");
+}
+
+static void menu_draw(void) {
+  printf("\x1b[2J");
+  printf("\x1b[10;7HSawmill Party");
+  printf("\x1b[12;4HTouch lower Screen to Start");
+}
+
+// Arriving at a step: paint it, then set up whatever it needs.
+static void step_enter(void) {
+  step_draw();
+  if (campaign[step].kind == STEP_MINIGAME) {
+    NF_HideBg(1, BG_STRIPES_LAYER);
+    game_start();
+  } else {
+    NF_ShowBg(1, BG_STRIPES_LAYER);
+  }
+}
+
+// Leaving a step: hand back whatever step_enter() took. Every start needs a
+// matching stop, or the second run through the campaign fails to load.
+static void step_exit(void) {
+  if (campaign[step].kind == STEP_MINIGAME)
+    game_stop();
+}
+
+static void step_advance(void) {
+  step_exit();
+  step++;
+
+  if (step >= CAMPAIGN_LEN) {
+    state = GS_MENU;
+    NF_HideBg(1, BG_STRIPES_LAYER);
+    menu_draw();
+  } else {
+    step_enter();
+  }
+}
+
+// MiniGame -> Should be placed into its own file later
+//!!!!
+//
 
 static void check_win(void) {
   if (won)
@@ -49,10 +125,12 @@ static void check_win(void) {
     if (!placed[i])
       return;
   won = true;
-  printf("\x1b[5;2Hyou win yayyyyyy");
 }
 
-static void game_update(void) {
+// Returns true once every saw is in a slot. Reporting the win rather than
+// advancing the campaign itself keeps this function free of side effects on
+// the walker -- the main loop decides what a win means.
+static bool game_update(void) {
   if (keysHeld() & KEY_TOUCH) {
     // Pen is down: pick up a saw, then drag whatever is held.
     touchPosition t;
@@ -106,9 +184,27 @@ static void game_update(void) {
       check_win();
     }
   }
+
+  return won;
+}
+
+static void game_draw(void) {
+  // No screen clear: step_draw() has already painted the header for this step.
+  printf("\x1b[6;2HDrag the saws onto the marks");
 }
 
 static void game_start(void) {
+  // Reset Game State. The initialisers on the globals above only ever run once,
+  // at boot, so replaying the campaign has to reset them here.
+  for (int i = 0; i < SAW_COUNT; i++) {
+    saw_x[i] = saw_reset_x[i];
+    saw_y[i] = saw_reset_y[i];
+    placed[i] = false;
+    slot_taken[i] = false;
+  }
+  held = -1;
+  won = false;
+
   // File to RAM
   NF_LoadSpriteGfx("sprite/saw_1", 0, 16, 32);
   NF_LoadSpriteGfx("sprite/saw_2", 1, 16, 32);
@@ -124,7 +220,32 @@ static void game_start(void) {
     NF_CreateSprite(1, 3 + i, 1, 0, slot_x[i], slot_y[i]);
   for (int i = 0; i < SAW_COUNT; i++)
     NF_CreateSprite(1, i, 0, 0, saw_x[i], saw_y[i]);
+
+  game_draw();
 }
+
+// The exact mirror of game_start(), in reverse order: sprites, then VRAM, then
+// RAM. NFLib refuses to load into a slot that is still occupied, so skipping
+// this halts the ROM the second time the minigame runs.
+static void game_stop(void) {
+  for (int i = 0; i < SAW_COUNT * 2; i++)
+    NF_DeleteSprite(1, i);
+
+  NF_FreeSpriteGfx(1, 0);
+  NF_FreeSpriteGfx(1, 1);
+  NF_VramSpriteGfxDefrag(1);
+
+  NF_UnloadSpriteGfx(0);
+  NF_UnloadSpriteGfx(1);
+  NF_UnloadSpritePal(0);
+}
+
+static void debug_draw(void) {
+  printf("\x1b[22;2Hstate=%s step=%d/%d  ", state == GS_MENU ? "MENU" : "STEP",
+         step, CAMPAIGN_LEN);
+}
+
+// MAIN -- Most Important
 int main(int argc, char **argv) {
   // Top screen: text console.
   videoSetMode(MODE_0_2D);
@@ -142,27 +263,42 @@ int main(int argc, char **argv) {
   }
   NF_SetRootFolder("NITROFS");
 
-  // Bottom screen: sprites only. NF_Set2D() first, it clears the sprite
-  // enable bit that NF_InitSpriteSys() sets.
+  // Bottom screen. NF_Set2D() first, it clears the enable bits the two init
+  // calls below set.
   NF_Set2D(1, 0);
+
+  NF_InitTiledBgBuffers();
+  NF_InitTiledBgSys(1);
+
   NF_InitSpriteBuffers();
   NF_InitSpriteSys(1);
+
+  NF_LoadTiledBg("bg/stripes_bg", "stripes", 256, 256);
+  NF_CreateTiledBg(1, BG_STRIPES_LAYER, "stripes");
+  NF_HideBg(1, BG_STRIPES_LAYER);
+
   BG_PALETTE_SUB[0] = RGB15(3, 4, 8);
   menu_draw();
+
   while (1) {
     scanKeys();
 
     if (state == GS_MENU) {
       if (keysDown() & KEY_TOUCH) {
-        state = GS_GAME;
-        game_draw();
-        game_start();
+        state = GS_STEP;
+        step = 0;
+        step_enter();
+      }
+    } else if (state == GS_STEP) {
+      if (campaign[step].kind == STEP_MINIGAME) {
+        if (game_update())
+          step_advance();
+      } else if (keysDown() & KEY_TOUCH) {
+        step_advance();
       }
     }
 
-    if (state == GS_GAME) {
-      game_update();
-    }
+    debug_draw();
     NF_SpriteOamSet(1);
     swiWaitForVBlank();
     oamUpdate(&oamSub);
