@@ -31,4 +31,9 @@ void roundDraw(void);
 int roundSecondsLeft(void);
 bool roundWasWon(void);
 
+/// Raw frame counts, for the timer bar -- draining off these rather than off
+/// whole seconds is what makes it slide instead of jumping.
+int roundFramesLeft(void);
+int roundFramesTotal(void);
+
 #endif // CLAUDE_ROUND_H

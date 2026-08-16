@@ -21,18 +21,21 @@
 // How long the reaction stays up once the round is over.
 #define RESULT_FRAMES (FPS * 3 / 2)
 
-// Row on the top screen's text console. Near the bottom, over the portrait's
-// dark coat, where white text reads well.
-#define ROW_CLOCK 22
+// Row on the bottom-screen console: just under the stage header, where the
+// minigame's name sits while it is being played. The old row 22 is now covered
+// by the timer bar's sprites, which sit at y=180.
+#define ROW_RESULT 1
 
 static RoundPhase phase = ROUND_DONE;
 static int frames_left = 0;
+static int frames_total = 0;
 static int result_left = 0;
 static bool was_won = false;
 
 void roundStart(int seconds) {
   phase = ROUND_PLAYING;
   frames_left = seconds * FPS;
+  frames_total = frames_left;
   result_left = 0;
   was_won = false;
   girlSetMood(GIRL_IDLE);
@@ -45,6 +48,11 @@ bool roundWasWon(void) { return was_won; }
 // Rounds up, so a clock showing "1" still has something left on it and the
 // display only reaches 0 when the time is genuinely gone.
 int roundSecondsLeft(void) { return (frames_left + FPS - 1) / FPS; }
+
+// The timer bar drains off these rather than off whole seconds, so it slides
+// smoothly instead of jumping once a second.
+int roundFramesLeft(void) { return frames_left; }
+int roundFramesTotal(void) { return frames_total; }
 
 static void finish(bool won) {
   was_won = won;
@@ -81,11 +89,15 @@ RoundPhase roundUpdate(bool won) {
 }
 
 void roundDraw(void) {
-  // Trailing spaces wipe the previous, longer text; printf only paints the
+  // While the clock runs, the row belongs to the minigame's name and the time
+  // is shown by the bar instead. Only the outcome is painted here, and only
+  // once -- redrawing it every frame of the hold would fight the minigame's own
+  // draw() for the same row.
+  if (phase != ROUND_RESULT || result_left != RESULT_FRAMES)
+    return;
+
+  // Trailing spaces wipe whatever longer text was there; printf only paints the
   // characters it writes.
-  if (phase == ROUND_PLAYING)
-    printf("\x1b[%d;2HTime: %d       ", ROW_CLOCK, roundSecondsLeft());
-  else
-    printf("\x1b[%d;2H%s", ROW_CLOCK,
-           was_won ? "Done in time!  " : "Out of time... ");
+  printf("\x1b[%d;1H%s", ROW_RESULT,
+         was_won ? "Done in time!                " : "Out of time...               ");
 }

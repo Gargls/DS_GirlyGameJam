@@ -89,3 +89,14 @@ void girlShow(bool visible) {
   for (int i = 0; i < CELLS; i++)
     NF_ShowSprite(0, ID_FIRST + i, visible);
 }
+
+void girlSetOffset(int dx, int dy) {
+  // Negative X is fine here. The DS stores a sprite's X in nine bits and treats
+  // it as wrapping, so -224 is written as 288 and the hardware draws the sprite
+  // off the left edge exactly as intended. (Y is only eight bits and wraps at
+  // 256, which is why the slide is horizontal only -- a negative Y would
+  // reappear at the top of the screen instead of hiding.)
+  for (int i = 0; i < CELLS; i++)
+    NF_MoveSprite(0, ID_FIRST + i, GIRL_X + (i % GRID) * CELL + dx,
+                  GIRL_Y + (i / GRID) * CELL + dy);
+}

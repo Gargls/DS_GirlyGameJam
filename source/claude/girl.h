@@ -19,4 +19,13 @@ void girlSetMood(GirlMood mood);
 
 void girlShow(bool visible);
 
+/// Offsets far enough to park her completely off one side of the screen. Used
+/// as the endpoints of the cutscene slide.
+#define GIRL_OFF_LEFT (-224)
+#define GIRL_OFF_RIGHT (224)
+
+/// Shifts all nine cells relative to their home position. (0, 0) puts her back
+/// where she belongs; anything else slides her without disturbing the grid.
+void girlSetOffset(int dx, int dy);
+
 #endif // CLAUDE_GIRL_H
