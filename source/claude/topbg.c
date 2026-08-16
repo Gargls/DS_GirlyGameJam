@@ -2,18 +2,20 @@
 //
 // The top-screen backdrop.
 //
-// Loaded by hand rather than through NFLib. The text console is not an NFLib
-// background -- consoleInit() claimed VRAM_A directly -- and NFLib's allocator
-// has no idea it is there, so letting NFLib hand out blocks on this screen
-// would eventually land on top of the console's font or its map. Placing this
-// background at fixed bases keeps the two out of each other's way.
+// Loaded by hand rather than through NFLib, because NFLib's tiled-bg allocator
+// is never initialized on the top screen (only NF_InitTiledBgSys(1) is called,
+// for the console side) -- there is no pool here to ask, only fixed VRAM_A to
+// place bytes into directly.
+//
+// One background is live at a time, at fixed VRAM bases, so switching for a
+// new stage is just calling this again with a different name -- the old
+// content is simply overwritten. A smaller image leaves stale tiles past its
+// own map's reach, which is harmless: nothing indexes them.
 //
 // VRAM_A is 128 KB at 0x06000000:
 //
-//   0x00000..        console font tiles   (consoleInit tile base 0)
-//   0x0F000..0x0F7FF this background's map        (map base 30)
-//   0x0F800..0x0FFFF console map          (consoleInit map base 31)
-//   0x10000..0x1BAFF this background's tiles      (tile base 4)
+//   0x0F000..0x0F7FF this background's map   (map base 30)
+//   0x10000..0x1FFFF this background's tiles (tile base 4), room for 1024
 
 #include <stdbool.h>
 #include <stdio.h>
@@ -66,13 +68,15 @@ static bool load_to(const char *path, void *dest, size_t limit) {
   return ok;
 }
 
-bool topBgInit(void) {
-  if (!load_to("nitro:/bg/menu_bg.img",
-               (void *)(VRAM_A_BASE + TILE_BASE * 16384), 16384 * 4))
+bool topBgLoad(const char *name) {
+  char path[64];
+
+  snprintf(path, sizeof(path), "nitro:/bg/%s.img", name);
+  if (!load_to(path, (void *)(VRAM_A_BASE + TILE_BASE * 16384), 16384 * 4))
     return false;
 
-  if (!load_to("nitro:/bg/menu_bg.map",
-               (void *)(VRAM_A_BASE + MAP_BASE * 2048), 2048))
+  snprintf(path, sizeof(path), "nitro:/bg/%s.map", name);
+  if (!load_to(path, (void *)(VRAM_A_BASE + MAP_BASE * 2048), 2048))
     return false;
 
   // The palette goes to an *extended* palette slot rather than BG_PALETTE.
@@ -80,9 +84,9 @@ bool topBgInit(void) {
   // which is 4bpp -- carries on reading the standard palette and its font
   // colours are left exactly as they were. Writing BG_PALETTE instead would
   // recolour the text.
+  snprintf(path, sizeof(path), "nitro:/bg/%s.pal", name);
   vramSetBankE(VRAM_E_LCD); // let the CPU see VRAM_E
-  bool ok = load_to("nitro:/bg/menu_bg.pal",
-                    (void *)(EXT_PAL_BASE + (BG_LAYER << 13)), 512);
+  bool ok = load_to(path, (void *)(EXT_PAL_BASE + (BG_LAYER << 13)), 512);
   vramSetBankE(VRAM_E_BG_EXT_PALETTE);
   if (!ok)
     return false;
