@@ -19,8 +19,6 @@
 
 #include <nds.h>
 
-#include <nf_lib.h>
-
 #include "../claude/girl.h"
 #include "../claude/music.h"
 #include "../claude/round.h"
@@ -43,12 +41,6 @@
 // the clock stops, so the two must agree.
 #define ROW_NAME 1
 
-// The bottom-screen decorative backdrop (bg/shop_bg, loaded once in main.c).
-// It sits behind minigame sprites and in front of nothing that matters during
-// a cutscene, so it has to be hidden explicitly whenever the stripes are
-// covering -- unlike the stripes layer, it is not in the wipe's window mask.
-#define BG_SHOP_LAYER 1
-
 typedef enum {
   RUN_MENU,
   RUN_CUTSCENE,
@@ -69,7 +61,6 @@ static bool failing;
 static const Cutscene ending_cutscene = {
     .entry = CUT_STAY,
     .mood_in = GIRL_HAPPY,
-    .mood_talk = GIRL_HAPPY,
     .lines = script_ending,
     .exit = CUT_REMAIN,
 };
@@ -84,7 +75,6 @@ static void menu_enter(void) {
 
   wipeCancel();
   timerBarHide();
-  NF_HideBg(1, BG_SHOP_LAYER);
   topBgLoad("menu_bg");
   musicPlay("blithe_a");
 
@@ -116,11 +106,6 @@ static void enter_step(void) {
   if (s->kind == STEP_MINIGAME) {
     state = RUN_MINIGAME;
 
-    if (cur_stage()->shop_bg)
-      NF_ShowBg(1, BG_SHOP_LAYER);
-    else
-      NF_HideBg(1, BG_SHOP_LAYER);
-
     // Build the game behind the stripes, then sweep them off it. The clock is
     // armed here but does not tick until the sweep has finished, because the
     // loop skips roundUpdate() while a wipe is running -- so no time is lost
@@ -135,7 +120,6 @@ static void enter_step(void) {
   } else {
     state = RUN_CUTSCENE;
     timerBarHide();
-    NF_HideBg(1, BG_SHOP_LAYER);
 
     // Cover the screen with the stripes and play the scene over them. The
     // console's layer is not in the wipe's window mask, so the first page of
@@ -162,7 +146,6 @@ static void begin_run(void) {
 static void enter_ending(void) {
   state = RUN_ENDING;
   timerBarHide();
-  NF_HideBg(1, BG_SHOP_LAYER);
 
   girlShow(true);
   girlSetOffset(0, 0);
@@ -196,7 +179,6 @@ static void enter_fail(void) {
   state = RUN_CUTSCENE;
   failing = true;
   timerBarHide();
-  NF_HideBg(1, BG_SHOP_LAYER);
 
   // She may be off-screen -- stage 3 sends her away -- and the fail scene needs
   // her back. CUT_STAY in the scene puts her at home and shows her again.

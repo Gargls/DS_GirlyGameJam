@@ -24,7 +24,7 @@ SOURCEDIRS	:= source
 INCLUDEDIRS	:=
 GFXDIRS		:=
 BINDIRS		:=
-AUDIODIRS	:=
+AUDIODIRS	:= sfx
 NITROFSDIR	:= nitrofiles
 
 # DLDI and internal SD slot of DSi

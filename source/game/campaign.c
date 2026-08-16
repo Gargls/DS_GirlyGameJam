@@ -13,14 +13,13 @@
 
 // ---- Cutscenes -------------------------------------------------------------
 //
-// mood_in is what she wears while arriving; mood_talk is switched to just
-// before the first line. When they differ you get a visible change of face on
-// arrival, which is what stage 1 is after.
+// mood_in is what she wears while arriving. What she wears while talking is
+// per-line now -- see script.c -- so a scene only needs to say this once, at
+// the door, rather than declare a mood for the whole conversation.
 
 static const Cutscene cut_stage1 = {
     .entry = CUT_ENTER_LEFT,
-    .mood_in = GIRL_IDLE,
-    .mood_talk = GIRL_HAPPY, // idle on the way in, happy once she arrives
+    .mood_in = GIRL_IDLE, // idle on the way in; script_stage1 takes it happy
     .lines = script_stage1,
     .exit = CUT_REMAIN,
 };
@@ -28,7 +27,6 @@ static const Cutscene cut_stage1 = {
 static const Cutscene cut_stage2 = {
     .entry = CUT_STAY,
     .mood_in = GIRL_IDLE,
-    .mood_talk = GIRL_IDLE, // idle throughout, as specified
     .lines = script_stage2,
     .exit = CUT_REMAIN,
 };
@@ -36,7 +34,6 @@ static const Cutscene cut_stage2 = {
 static const Cutscene cut_stage3 = {
     .entry = CUT_STAY,
     .mood_in = GIRL_HAPPY, // already happy when the scene opens
-    .mood_talk = GIRL_HAPPY,
     .lines = script_stage3,
     .exit = CUT_EXIT_RIGHT, // and she leaves before the stage begins
 };
@@ -44,7 +41,6 @@ static const Cutscene cut_stage3 = {
 static const Cutscene cut_stage4 = {
     .entry = CUT_ENTER_LEFT, // back in, after being gone for all of stage 3
     .mood_in = GIRL_HAPPY,
-    .mood_talk = GIRL_HAPPY,
     .lines = script_stage4,
     .exit = CUT_REMAIN,
 };
@@ -52,7 +48,6 @@ static const Cutscene cut_stage4 = {
 const Cutscene fail_cutscene = {
     .entry = CUT_STAY,
     .mood_in = GIRL_DISAPPOINTED,
-    .mood_talk = GIRL_DISAPPOINTED,
     .lines = script_fail,
     .exit = CUT_REMAIN,
 };
@@ -67,13 +62,11 @@ static const Step steps_stage1[] = {
     {STEP_MINIGAME, 0, &placeholderMinigame},
 };
 
-// Stage 2 -- Shopping. Real mechanics, wrong theme: the drag puzzle that was
-// already here, plus two lifted out of nds-jam-vertical-slice.
+// Stage 2 -- Shopping. Build-a-Bear, in two parts: the eyes, then the bow.
 static const Step steps_stage2[] = {
     {STEP_CUTSCENE, &cut_stage2, 0},
-    {STEP_MINIGAME, 0, &heartsMinigame},
-    {STEP_MINIGAME, 0, &starsMinigame},
-    {STEP_MINIGAME, 0, &sawMinigame},
+    {STEP_MINIGAME, 0, &eyesMinigame},
+    {STEP_MINIGAME, 0, &bowMinigame},
 };
 
 // Stage 3 -- The Deed. Placeholder art, real mechanics, written for this.
@@ -98,13 +91,13 @@ static const Step steps_stage4[] = {
 // building, left at the start of the night and returned to at the end. See
 // stash/GameDesign.md for the rest of the backdrop-to-stage reasoning.
 const Stage stages[] = {
-    {"STAGE 1  Getting Ready", "stage1_bg", "blithe_a", false, 10,
+    {"STAGE 1  Getting Ready", "stage1_bg", "blithe_a", 10,
      STEPS(steps_stage1)},
-    {"STAGE 2  Shopping", "stage2_bg", "blithe_a", true, 8,
+    {"STAGE 2  Shopping", "stage2_bg", "blithe_a", 8,
      STEPS(steps_stage2)},
-    {"STAGE 3  The Deed", "stage3_bg", "blithe_b", false, 8,
+    {"STAGE 3  The Deed", "stage3_bg", "blithe_b", 8,
      STEPS(steps_stage3)},
-    {"STAGE 4  The Date", "stage1_bg", "blithe_b", false, 6,
+    {"STAGE 4  The Date", "stage1_bg", "blithe_b", 6,
      STEPS(steps_stage4)},
 };
 

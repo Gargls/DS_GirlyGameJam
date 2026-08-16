@@ -5,8 +5,6 @@
 #ifndef GAME_CAMPAIGN_H
 #define GAME_CAMPAIGN_H
 
-#include <stdbool.h>
-
 #include "cutscene.h"
 #include "minigame.h"
 
@@ -26,8 +24,6 @@ typedef struct {
                      ///< stage. Unchanged if it matches what is already
                      ///< playing, so back-to-back stages sharing a track
                      ///< never restart it.
-  bool shop_bg;    ///< Show bg/shop_bg behind this stage's minigames, on the
-                   ///< bottom screen.
   int seconds;     ///< Clock for every minigame in this stage.
   const Step *steps;
   int count;

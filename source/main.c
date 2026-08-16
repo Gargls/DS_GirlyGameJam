@@ -7,8 +7,9 @@
 //
 //   TOP    (main engine)  backdrop on BG2 (per stage), the girl as nine
 //                         sprites, no text
-//   BOTTOM (sub engine)   console on BG0, shop backdrop on BG1 (stage 2
-//                         minigames only), stripes on BG3, minigame sprites
+//   BOTTOM (sub engine)   console on BG0, BG1 owned per-minigame (the
+//                         Build-a-Bear backdrops, see mg_eyes.c/mg_bow.c),
+//                         stripes on BG3, minigame sprites
 //
 // The text used to be on the top screen and had to dodge her face -- rows 0-2
 // above her head, rows 21-22 over her coat, nothing in between. Moving it to
@@ -24,6 +25,7 @@
 
 #include "claude/girl.h"
 #include "claude/music.h"
+#include "claude/sfx.h"
 #include "claude/timerbar.h"
 #include "claude/topbg.h"
 #include "claude/wipe.h"
@@ -33,12 +35,6 @@
 // Backmost of the four layers, which is what a backdrop wants, and it leaves
 // 0-2 free -- the console takes 0.
 #define BG_STRIPES_LAYER 3
-
-// Decorative backdrop behind stage 2's minigames -- a shop counter, standing
-// in for a coin/pay minigame that does not exist yet. Layer 1 sits behind the
-// sprites (layer 0, NFLib's default) and in front of the stripes; run.c shows
-// and hides it per stage.
-#define BG_SHOP_LAYER 1
 
 int main(int argc, char **argv) {
   // The top screen is the main engine. Its backdrop is loaded by hand into
@@ -56,6 +52,7 @@ int main(int argc, char **argv) {
   NF_SetRootFolder("NITROFS");
 
   musicInit();
+  sfxInit();
 
   // Bottom screen. NF_Set2D() goes first: it clears the enable bits that the
   // init calls below set.
@@ -76,10 +73,6 @@ int main(int argc, char **argv) {
   NF_CreateTiledBg(1, BG_STRIPES_LAYER, "stripes");
   NF_HideBg(1, BG_STRIPES_LAYER);
   wipeInit(BG_STRIPES_LAYER);
-
-  NF_LoadTiledBg("bg/shop_bg", "shop", 256, 256);
-  NF_CreateTiledBg(1, BG_SHOP_LAYER, "shop");
-  NF_HideBg(1, BG_SHOP_LAYER);
 
   // Top-screen backdrop, behind the portrait. run.c swaps it per stage.
   topBgLoad("menu_bg");

@@ -27,6 +27,11 @@
 //   palette RAM    0, 3, 4, ...
 //   ext palette    0, 1, 2      (the timer bar holds 3 on screen 1)
 //   sprite ids     0-63         (the timer bar holds 100-115)
+//
+// Screen 1's BG layer 1 is unclaimed the same way: console owns 0, stripes
+// owns 3, nothing owns 2, and 1 is free for whichever minigame wants a full
+// backdrop (mg_eyes.c and mg_bow.c load and delete their own tiled BG there
+// in start()/stop(), same lifetime as their sprites).
 
 #ifndef MG_GAMES_H
 #define MG_GAMES_H
@@ -36,7 +41,12 @@
 // Stand-in used wherever the real game is still waiting on art.
 extern const Minigame placeholderMinigame;
 
-// Stage 2 -- real mechanics, wrong theme for now.
+// Stage 2 -- Build-a-Bear, in two parts.
+extern const Minigame eyesMinigame;
+extern const Minigame bowMinigame;
+
+// Real mechanics, spare and unused since stage 2 became Build-a-Bear -- free
+// for stage 1 or 4 whenever those get real art.
 extern const Minigame sawMinigame;
 extern const Minigame heartsMinigame;
 extern const Minigame starsMinigame;

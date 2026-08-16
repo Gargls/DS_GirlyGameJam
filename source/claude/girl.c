@@ -13,6 +13,7 @@
 #include <nf_lib.h>
 
 #include "girl.h"
+#include "sfx.h"
 
 #define CELL 64
 #define GRID 3
@@ -83,6 +84,11 @@ void girlSetMood(GirlMood mood) {
 
   for (int i = 0; i < CELLS; i++)
     NF_SpriteFrame(0, ID_FIRST + i, mood);
+
+  if (mood == GIRL_HAPPY)
+    sfxHappy();
+  else if (mood == GIRL_DISAPPOINTED)
+    sfxDisappointed();
 }
 
 void girlShow(bool visible) {

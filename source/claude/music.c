@@ -24,6 +24,7 @@
 #include <nds.h>
 
 #include "music.h"
+#include "soundbank.h"
 
 #define STAGING_LEN 16384
 
@@ -178,14 +179,23 @@ static mm_word stream_callback(mm_word length, mm_addr dest,
 
 // ---- Public interface --------------------------------------------------------
 
+// One-time, whole-system maxmod setup. Streaming and the soundbank (sfx.c's
+// short one-shot effects) are independent maxmod subsystems, but mmInit() may
+// only be called once, so whichever file happens to own it sets both up.
+// mem_bank is bookkeeping for the soundbank -- one word per module plus
+// sample the bank could ever have loaded at once, sized from the same
+// mmutil-generated counts sfx.c loads by ID.
+static mm_word mem_bank[MSL_BANKSIZE];
+
 void musicInit(void) {
   mm_ds_system sys = {
-      .mod_count = 0,
-      .samp_count = 0,
-      .mem_bank = 0,
+      .mod_count = MSL_NSONGS,
+      .samp_count = MSL_NSAMPS,
+      .mem_bank = mem_bank,
       .fifo_channel = FIFO_MAXMOD,
   };
   mmInit(&sys);
+  mmSoundBankInFiles("nitro:/soundbank.bin");
   current[0] = '\0';
 }
 

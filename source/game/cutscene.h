@@ -10,6 +10,7 @@
 #include <stdbool.h>
 
 #include "../claude/girl.h"
+#include "script.h"
 
 typedef enum {
   CUT_ENTER_LEFT, ///< Slides in from off the left edge to the middle.
@@ -24,12 +25,14 @@ typedef enum {
 
 typedef struct {
   CutEntry entry;
-  GirlMood mood_in;   ///< Mood while she arrives.
-  GirlMood mood_talk; ///< Switched to just before the first line is spoken.
+  GirlMood mood_in; ///< Mood while she arrives, before the first line shows.
 
-  /// NULL-terminated. See script.c -- the terminator is what ends the scene,
-  /// so there is no count here to fall out of step with the writing.
-  const char *const *lines;
+  /// NULL-terminated (by `.text`). See script.c -- the terminator is what
+  /// ends the scene, so there is no count here to fall out of step with the
+  /// writing. Each line carries its own mood, applied the moment it is shown
+  /// -- that is what replaced the old single mood_talk, one mood for the
+  /// whole scene.
+  const Line *lines;
 
   CutExit exit;
 } Cutscene;

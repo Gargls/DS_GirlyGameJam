@@ -34,16 +34,19 @@ static int ease(int from, int to, int f, int total) {
 }
 
 static void show_line(void) {
+  // Each line carries its own mood, applied the moment it is shown -- so a
+  // scene can change her face mid-conversation, not just once at the start.
+  girlSetMood(scene->lines[line].mood);
+
   // The next entry being non-NULL is exactly "there is more after this", which
   // is also what the prompt at the bottom of the box needs to know.
-  dialoguePage(scene->lines[line], scene->lines[line + 1] != NULL);
+  dialoguePage(scene->lines[line].text, scene->lines[line + 1].text != NULL);
 }
 
 // Moves on to talking. Split out because two phases can lead here: a scene with
 // an entrance, and one without.
 static void begin_talk(void) {
   girlSetOffset(0, 0);
-  girlSetMood(scene->mood_talk);
   phase = PH_TALK;
   line = 0;
   show_line();
@@ -93,7 +96,7 @@ bool cutsceneUpdate(void) {
       return false;
 
     line++;
-    if (scene->lines[line] != NULL) {
+    if (scene->lines[line].text != NULL) {
       show_line();
       return false;
     }

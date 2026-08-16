@@ -5,7 +5,9 @@
 #ifndef CLAUDE_MUSIC_H
 #define CLAUDE_MUSIC_H
 
-/// Sets maxmod up for streaming. Call once, after NitroFS is mounted.
+/// Sets maxmod up, for both streaming and the sfx.c soundbank -- mmInit() may
+/// only be called once for the whole program, and this is it. Call once,
+/// after NitroFS is mounted, and before sfxInit().
 void musicInit(void);
 
 /// Streams nitrofiles/audio/<name>.wav on a loop. Calling this with the name
